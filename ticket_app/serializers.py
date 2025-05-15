@@ -9,7 +9,8 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['username', 'email', 'password']
-
+        
+      # Create a user and set is_normal_user=True
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data['username'],
@@ -28,29 +29,30 @@ class NormalUserSerializer(serializers.ModelSerializer):
 class TrainSerializer(serializers.ModelSerializer):
     class Meta:
         model = Train
-        fields = '__all__'
+        fields = '__all__'  # Include all train fields
         
 
     def validate(self, data):
+         # Get source and destination in lowercase for comparison
         source = data.get('source_station', '').strip().lower()
         dest = data.get('destination_station', '').strip().lower()
-
-        if source == dest:
+    
+        if source == dest:   # Source and destination should not be the same
             raise serializers.ValidationError("Source and destination stations cannot be the same.")
 
-        if data.get('start_time') == data.get('end_time'):
+        if data.get('start_time') == data.get('end_time'):   # Start and end time should not be the same
             raise serializers.ValidationError("Start time and end time cannot be the same.")
 
-        if data.get('arrival_date') < data.get('departure_date'):
+        if data.get('arrival_date') < data.get('departure_date'): # Arrival date must not be before departure
             raise serializers.ValidationError("Arrival date cannot be before departure date.")
 
-        if data.get('arrival_date') == data.get('departure_date'):
-            raise serializers.ValidationError("Arrival date and departure date cannot be the same.")
+        if data.get('arrival_time') == data.get('departure_time'): # Arrival time and departure time  should not be same
+            raise serializers.ValidationError("Arrival time and departure time cannot be the same.")
 
-        if not isinstance(data.get('seat_classes'), list):
+        if not isinstance(data.get('seat_classes'), list):  # Seat classes should be a list
             raise serializers.ValidationError("Seat classes must be a list.")
         
-        if not isinstance(data.get('intermediate_stops'), list):
+        if not isinstance(data.get('intermediate_stops'), list):  # intermediate_stops should be a list
             raise serializers.ValidationError("Intermediate stops must be a list.")
         return data
 
@@ -64,7 +66,7 @@ class BookingSerializer(serializers.ModelSerializer):
     train_name=serializers.SerializerMethodField(read_only=True,)
     train_number = serializers.CharField(write_only=True) 
     fare = serializers.DecimalField(max_digits=8, decimal_places=2, read_only=True)
-    pnr = serializers.CharField(read_only=True)
+    # pnr = serializers.CharField(read_only=True)
 
     class Meta:
         model = Booking
@@ -73,15 +75,16 @@ class BookingSerializer(serializers.ModelSerializer):
             'seat_class', 'booking_type', 'boarding_station', 'destination_station',
             'fare', 'pnr', 'status', 'seat_number'
         ]
-        read_only_fields = ['fare', 'pnr', 'status', 'seat_number']
+        read_only_fields = ['fare',  'status', 'seat_number']
       
     def get_train_name(self, obj):
-        return obj.train.train_name if obj.train else None  
+        return obj.train.train_name if obj.train else None   # Return train name if train exists
       
     def validate_passenger_age(self, value):
-        if value <= 0:
+        
+        if value <= 0: # Age should be more than 0
             raise serializers.ValidationError("Passenger age must be greater than 0.")
-        if value > 120:
+        if value > 120:    # Age should not be more than 120
             raise serializers.ValidationError("Passenger age seems unrealistic.")
         return value
     
@@ -92,20 +95,25 @@ class BookingSerializer(serializers.ModelSerializer):
         boarding_station = attrs.get('boarding_station')
         destination_station = attrs.get('destination_station') 
         
+        
+          # Get the train using train number
         try:
             train = Train.objects.get(train_number=train_number)
         except Train.DoesNotExist:
             raise serializers.ValidationError(f"Train with number {train_number} not found.")
         
+         # Get passengers list if it's a group booking
         passengers = self.initial_data.get("passengers", [])
         if len(passengers) > 6:
             raise serializers.ValidationError("You cannot add more than 6 passengers.")
         
+          # Calculate fare using train method
         try:
             fare = train.get_fare(seat_class, booking_type, boarding_station, destination_station)
         except ValueError as e:
             raise serializers.ValidationError(str(e))
         
+          # Save the train and fare in validated data
         attrs['train'] = train
         attrs['fare'] = Decimal(str(fare)).quantize(Decimal('0.01'))
         return attrs
@@ -114,8 +122,10 @@ class BookingSerializer(serializers.ModelSerializer):
         validated_data.pop('train_number', None)
         train = validated_data['train']
         seat_class = validated_data['seat_class'].lower()
-        existing_seat_count = Booking.objects.filter(train=train, seat_class=seat_class).count() + 1
+        existing_seat_count = Booking.objects.filter(train=train, seat_class=seat_class).count() + 1   # Count how many seats are already booked for this class
         
+        
+        # Assign seat number and reduce seat count
         if seat_class == "sleeper":
             if train.available_seats_sleeper <= 0:
                 raise serializers.ValidationError("No available Sleeper seats.")
@@ -134,7 +144,10 @@ class BookingSerializer(serializers.ModelSerializer):
         else:
             raise serializers.ValidationError("Invalid seat class.")
 
-        train.save()
-        validated_data['seat_number'] = seat_number
-        return Booking.objects.create(**validated_data)
+        train.save() # Save updated seat availability
+        validated_data['seat_number'] = seat_number # Add seat number to data
+        pnr = self.initial_data.get("pnr")
+        if pnr:
+            validated_data["pnr"] = pnr
+        return Booking.objects.create(**validated_data)   # Create and return booking
 

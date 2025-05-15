@@ -12,11 +12,10 @@ class CustomUser(AbstractUser):
 import random
 import string
 
-def generate_pnr():
+def generate_pnr(): #Generate and create a random 8-digit number as a string
     return ''.join(random.choices(string.digits, k=8))
 
-def get_current_date():
-    return timezone.now().date()
+
 
 class Train(models.Model):
     train_number = models.CharField(max_length=10, unique=True)
@@ -47,53 +46,55 @@ class Train(models.Model):
         return f"{self.train_name} ({self.train_number})"
   
 
-    def get_station_order(self):
+    def get_station_order(self):  # Returns the list of all stations 
             return [self.source_station] + self.intermediate_stops + [self.destination_station]
 
 
-    def calculate_distance(self, boarding_station, destination_station):
+    def calculate_distance(self, boarding_station, destination_station):# This function calculates how much distance the user is traveling based on boarding and destination
         station_order = self.get_station_order()
 
         print(f"Station order: {station_order}")
         print(f"Boarding station: {boarding_station}, Destination station: {destination_station}")
-
+        
+        
+           # If any station is not valid (not in the train route), raise error
         if boarding_station not in station_order or destination_station not in station_order:
             raise ValueError(f"Invalid boarding or destination station. Boarding: {boarding_station}, Destination: {destination_station}")
 
         start_index = station_order.index(boarding_station)
         end_index = station_order.index(destination_station)
-
+        
+          # If user is trying to go backward or same station, raise error
         if start_index >= end_index:
             raise ValueError("Destination must come after boarding station")
 
-        # Equal segment assumption
+        #Divide total distance equally between each segment
         total_segments = len(station_order) - 1
         covered_segments = end_index - start_index
 
         segment_distance = self.total_distance / total_segments
-        return round(segment_distance * covered_segments, 2)
+        return round(segment_distance * covered_segments, 2) # Return the distance user travels, rounded to 2 decimal places
 
-    def get_fare(self, seat_class, booking_type="Normal", boarding_station=None, destination_station=None):
+    def get_fare(self, seat_class, booking_type="Normal", boarding_station=None, destination_station=None):# This function calculates the fare for the user
         if not boarding_station or not destination_station:
             return None
-
-        fare_distance = self.calculate_distance(boarding_station, destination_station)
-        base_fare = self.get_base_fare(seat_class, booking_type)
-        if base_fare is None:
+        fare_distance = self.calculate_distance(boarding_station, destination_station)  # 'self' refers to the current train
+        base_fare = self.get_base_fare(seat_class, booking_type) # Get base fare per km for the given seat class and booking type
+        if base_fare is None: # If seat class is invalid or fare not found
             return None
-        return round(base_fare * fare_distance, 2)
+        return round(base_fare * fare_distance, 2) # Total fare = base fare × distance
 
-    def get_base_fare(self, seat_class, booking_type="Normal"):
+    def get_base_fare(self, seat_class, booking_type="Normal"):  # Returns base fare per km depending on booking type (Normal/Tatkal)
         if booking_type == "Tatkal":
             return self.fare_tatkal.get(seat_class)
         return self.fare_normal.get(seat_class)
     
-    def save(self, *args, **kwargs):
-        if self._state.adding: 
+    def save(self, *args, **kwargs): # When creating a new train, initialize available seats from total seats
+        if self._state.adding:  
             self.available_seats_sleeper = self.total_seats_sleeper
             self.available_seats_ac1 = self.total_seats_ac1
             self.available_seats_ac2 = self.total_seats_ac2
-        super().save(*args, **kwargs)
+        super().save(*args, **kwargs) # Save the object normally
     
 class Booking(models.Model):
     BOOKING_TYPE_CHOICES = [
