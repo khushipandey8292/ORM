@@ -1,11 +1,11 @@
 from django.shortcuts import render
-from .serializers import UserSerializer,NormalUserSerializer,BookingSerializer,TrainSerializer
+from .serializers import UserSerializer,NormalUserSerializer,BookingSerializer,TrainSerializer, PantryItemSerializer, BookingPantrySerializer
 from rest_framework.permissions import IsAdminUser,IsAuthenticated
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Booking,Train
+from .models import Booking,Train,PantryItem, BookingPantry
 from .models import generate_pnr
 from rest_framework import viewsets
 # from .permissions import IsNormalUser
@@ -67,6 +67,7 @@ class BookTicketView(APIView):
         seat_class = request.data.get("seat_class")
         boarding_station = request.data.get("boarding_station")
         destination_station = request.data.get("destination_station")
+        meal = request.data.get('meal', False)
         created_bookings = []
         passengers = request.data.get("passengers")# Check if passengers list is provided (group booking case)
         print(passengers)
@@ -84,7 +85,8 @@ class BookTicketView(APIView):
                     "passenger_name": passenger.get("name"),
                     "passenger_age": passenger.get("age"),
                     "passenger_gender": passenger.get("gender"),  
-                    "pnr": group_pnr     
+                    "pnr": group_pnr ,
+                    "meal":meal     
                 }
 
                 serializer = BookingSerializer(data=passenger_data)
@@ -114,7 +116,9 @@ class BookTicketView(APIView):
                 "passenger_name": passenger_name,
                 "passenger_age": passenger_age,
                 "passenger_gender": passenger_gender,
-                "pnr": unique_pnr,  
+                "pnr": unique_pnr,
+                "meal":meal
+                  
             }
             
             serializer = BookingSerializer(data=passenger_data)
@@ -154,3 +158,15 @@ class ORMAPIView(APIView):
             }
         }
         return Response(data)
+    
+    
+class PantryItemViewSet(viewsets.ModelViewSet):
+    queryset = PantryItem.objects.all()
+    serializer_class = PantryItemSerializer
+    permission_classes=[IsAdminUser]
+
+class BookingPantryViewSet(viewsets.ModelViewSet):
+    queryset = BookingPantry.objects.all()
+    serializer_class = BookingPantrySerializer
+    
+    

@@ -16,11 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path,include
-from ticket_app.views import RegisterUserView,NormalUsersListView,TrainViewSet,BookTicketView,ORMAPIView
+from ticket_app.views import RegisterUserView,NormalUsersListView,TrainViewSet,BookTicketView,ORMAPIView,PantryItemViewSet, BookingPantryViewSet
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
 router = DefaultRouter()
-router.register(r'trains', TrainViewSet)  
+router.register(r'trains', TrainViewSet) 
+router.register(r'pantry-items', PantryItemViewSet)
+router.register(r'booking-pantry', BookingPantryViewSet) 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('register/', RegisterUserView.as_view(), name='register-user'),
@@ -30,5 +32,4 @@ urlpatterns = [
     path('api/', include(router.urls)), 
     path('book-ticket/', BookTicketView.as_view(), name='book-ticket'),
     path('orm-examples/', ORMAPIView.as_view()),
-    
 ]

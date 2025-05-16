@@ -115,8 +115,25 @@ class Booking(models.Model):
     status = models.CharField(max_length=20, default="Confirmed")
     booking_time = models.DateTimeField(auto_now_add=True)
     seat_number = models.CharField(max_length=10, null=True, blank=True) 
-    
+    meal = models.BooleanField(default=False)  
     
     def __str__(self):
         return f"{self.passenger_name} - PNR {self.pnr}"
-    
+
+class PantryItem(models.Model):
+    name = models.CharField(max_length=100)
+    price = models.DecimalField(max_digits=7, decimal_places=2)
+
+    def __str__(self):
+        return self.name
+
+class BookingPantry(models.Model):
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE)
+    item = models.ForeignKey(PantryItem, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+
+    def get_total_price(self):
+        return self.item.price * self.quantity
+
+    def __str__(self):
+        return f"{self.quantity} x {self.item.name} for Booking {self.booking.pnr}"
